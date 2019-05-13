@@ -15,6 +15,9 @@
 #include "MeshInterfaceNanostack.h"
 #include "EMACInterface.h"
 #include "EMAC.h"
+#include "NanostackPPPInterface.h"
+#include "PPPInterface.h"
+#include "PPP.h"
 
 #ifdef  MBED_CONF_APP_DEBUG_TRACE
 #if MBED_CONF_APP_DEBUG_TRACE == 1
@@ -69,9 +72,11 @@ static void trace_printer(const char *str)
 #undef ETH
 #undef SLIP
 #undef EMAC
+#undef CELL
 #define ETH 1
 #define SLIP 2
 #define EMAC 3
+#define CELL 4
 #if MBED_CONF_APP_BACKHAUL_DRIVER == EMAC
 static void (*emac_actual_cb)(uint8_t, int8_t);
 static int8_t emac_driver_id;
@@ -149,6 +154,18 @@ void backhaul_driver_init(void (*backhaul_driver_status_cb)(uint8_t, int8_t))
         emac_driver_id = ns_if->get_driver_id();
         emac.set_link_state_cb(emac_link_cb);
     }
+#elif MBED_CONF_APP_BACKHAUL_DRIVER == CELL
+    tr_info("Using CELLULAR backhaul driver...");
+    NetworkInterface *net = NetworkInterface::get_default_instance();
+    if (!net) {
+        tr_error("Default network interface not found");
+        exit(1);
+    }
+
+    net->set_blocking(false);
+    net->connect();
+
+    Nanostack::PPPInterface::set_device_link_state_changed_callback(backhaul_driver_status_cb);
 #elif MBED_CONF_APP_BACKHAUL_DRIVER == ETH
     tr_info("Using ETH backhaul driver...");
     arm_eth_phy_device_register(mac, backhaul_driver_status_cb);
